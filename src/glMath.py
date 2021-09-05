@@ -1,5 +1,5 @@
-from src.glTypes import V3, V4
-from math import acos, pi, sin, cos, tan
+from src.glTypes import V3
+from math import pi, tan
 
 def norm(x):
   xnorm = ((x.x**2) + (x.y**2) + (x.z**2))**(1/2)
@@ -25,6 +25,9 @@ def substract(x, y):
 def dot(x, y):
   xdy = (x.x * y.x) + (x.y * y.y) + (x.z * y.z)
   return xdy
+
+def sum(x, y):
+  return V3(x.x + y.x, x.y + y.y, x.z + y.z)
 
 def top(fov, n):
   return tan((fov * pi / 180) / 2) * n
