@@ -9,8 +9,8 @@ from src.figures import Sphere
 from src.glMaterials import Material
 from src.glMath import sum
 
-width = 1200
-height = 768
+width = 1920
+height = 1080
 
 snow = Material(newColor(0.9, 0.9, 0.9))
 nose = Material(newColor(1,0.2509,0.1372))
@@ -42,5 +42,6 @@ rt.scene.append(Sphere(sum(snPos, V3(1.3,5.27,4)), 0.25, brownButton))
 rt.scene.append(Sphere(sum(snPos, V3(0,0.3,6)), 0.8, blackButton))
 rt.scene.append(Sphere(sum(snPos, V3(0,-3.25,8)), 1, blackButton))
 rt.scene.append(Sphere(sum(snPos, V3(0,-8,8)), 1.2, blackButton))
+
 rt.glRender()
 rt.glFinish("outputs/RT1.bmp")
