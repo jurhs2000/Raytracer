@@ -26,11 +26,38 @@ def dot(x, y):
   xdy = (x.x * y.x) + (x.y * y.y) + (x.z * y.z)
   return xdy
 
+def mult(v3, m):
+  product = V3(v3.x * m, v3.y * m, v3.z * m)
+  return product
+
 def sum(x, y):
   return V3(x.x + y.x, x.y + y.y, x.z + y.z)
 
-def top(fov, n):
-  return tan((fov * pi / 180) / 2) * n
+def negative(x):
+  return V3(-x.x, -x.y, -x.z)
+
+def top(fov):
+  return tan((fov * pi / 180) / 2)
+
+def linearMult(v1, v2):
+  return [ v1[i] * v2[i] for i in range(len(v1)) ]
+
+def matrixMult(matrixA, matrixB):
+  product = [ [] for x in range(len(matrixA)) ]
+  for i in range(len(matrixA)):
+    for j in range(len(matrixA)):
+      element = 0
+      for n in range(len(matrixA)):
+        element += matrixA[i][n] * matrixB[n][j]
+      product[i].append(element)
+  return product
+
+def reflectVector(normal, dirVector):
+  reflect = 2 * dot(normal, dirVector)
+  reflect = mult(normal, reflect)
+  reflect = substract(reflect, dirVector)
+  reflect = divide(reflect, norm(reflect))
+  return reflect
 
 # determinant of matrix without numpy
 # inspired by https://stackoverflow.com/questions/32114054/matrix-inversion-without-numpy

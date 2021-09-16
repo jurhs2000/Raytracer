@@ -1,26 +1,22 @@
-from src.glMath import dot, norm, substract
-
-class Intersect(object):
-  def __init__(self, distance):
-    self.distance = distance
+from src.glModels import Material, Intersect
+from src.glMath import divide, dot, norm, substract, sum, mult
 
 class Sphere(object):
-  def __init__(self, center, radius, material):
+  def __init__(self, center, radius, material = Material()):
     self.center = center
     self.radius = radius
     self.material = material
   
   def ray_intersect(self, origin, direction):
-    # P = O + t * d
     L = substract(self.center, origin)
     tca = dot(L, direction)
     l = norm(L)
-    d = (l**2 - tca**2) ** 0.5
-    if d > self.radius:
+    d = (l**2 - tca**2)
+    if d > self.radius ** 2:
       return None
 
     #Sphere behind de camera
-    thc = (self.radius**2 - d**2) ** 0.5
+    thc = (self.radius**2 - d) ** 0.5
     t0 = tca - thc
     t1 = tca + thc
     if t0 < 0:
@@ -28,4 +24,8 @@ class Sphere(object):
     if t0 < 0:
       return None
 
-    return Intersect(distance=t0)
+    #intersection P = O + t * d
+    hit = sum(origin, mult(direction, t0))
+    normal = substract(hit, self.center)
+    normal = divide(normal, norm(normal))
+    return Intersect(distance=t0, point=hit, normal=normal, sceneObject=self)
