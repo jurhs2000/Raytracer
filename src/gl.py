@@ -1,7 +1,8 @@
 # Graphics Library
 
+from src.glModels import MAX_RECURSION_DEPTH, OPAQUE, REFLECTIVE, TRANSPARENT
 from src.glTypes import V3, dword, newColor, word
-from src.glMath import divide, dot, linearMult, negative, norm, reflectVector, substract, top
+from src.glMath import divide, dot, fresnel, linearMult, negative, norm, reflectVector, substract, top, refractVector, mult, sum
 
 BLACK = newColor(0, 0, 0)
 WHITE = newColor(1, 1, 1)
@@ -19,6 +20,7 @@ class Raytracer(object):
     self.pointLights = []
     self.ambientLight = None
     self.directionalLight = None
+    self.environmentMap = None
 
   def glCreateWindow(self, width, height):
     self.width = width
@@ -80,31 +82,40 @@ class Raytracer(object):
         direction = divide(direction, norm(direction))
         self.glPoint(x, y, self.castRay(self.camPosition, direction))
 
-  def castRay(self, origin, direction):
-    intersect = self.sceneIntersect(origin, direction)
-    if intersect == None:
+  def castRay(self, origin, direction, originalObject = None, recursion = 0):
+    intersect = self.sceneIntersect(origin, direction, originalObject)
+    if intersect == None or recursion >= MAX_RECURSION_DEPTH:
+      if self.environmentMap:
+        return self.environmentMap.getColor(direction)
       return self.clear_color
 
     material = intersect.sceneObject.material
+    finalColor = [0,0,0]
     objectColor = [material.diffuse[2] / 255,
                   material.diffuse[1] / 255,
                   material.diffuse[0] / 255]
     pLightColor = [0,0,0]
     ambientColor = [0,0,0]
     dirLightColor = [0,0,0]
+    reflectColor = [0,0,0]
+    refractColor = [0,0,0]
+    finalSpecColor = [0,0,0]
 
     # View direction
     viewDir = substract(self.camPosition, intersect.point)
     viewDir = divide(viewDir, norm(viewDir))
 
+    # Ambient light
     if self.ambientLight:
       ambientColor = [self.ambientLight.strength * self.ambientLight.color[2] / 255,
                       self.ambientLight.strength * self.ambientLight.color[1] / 255,
                       self.ambientLight.strength * self.ambientLight.color[0] / 255]
 
+    # Directional light
     if self.directionalLight:
       diffuseColor = [0,0,0]
       specColor = [0,0,0]
+      shadowIntensity = 0
       lightDir = negative(self.directionalLight.direction)
       intensity = max(0, dot(intersect.normal, lightDir)) * self.directionalLight.intensity
       diffuseColor = [intensity * self.directionalLight.color[2] / 255,
@@ -116,47 +127,101 @@ class Raytracer(object):
       specColor = [specIntensity * self.directionalLight.color[2] / 255,
                   specIntensity * self.directionalLight.color[1] / 255,
                   specIntensity * self.directionalLight.color[0] / 255]
-      dirLightColor = [diffuseColor[0] + specColor[0],
-                      diffuseColor[1] + specColor[1],
-                      diffuseColor[2] + specColor[2]]
+      shadowIntersect = self.sceneIntersect(intersect.point, lightDir, intersect.sceneObject)
+      if shadowIntersect:
+        shadowIntensity = 1
+      dirLightColor = [(1 - shadowIntensity) * diffuseColor[0],
+                      (1 - shadowIntensity) * diffuseColor[1],
+                      (1 - shadowIntensity) * diffuseColor[2]]
+      finalSpecColor = [finalSpecColor[0] + ((1- shadowIntensity) * specColor[0]),
+                        finalSpecColor[1] + ((1- shadowIntensity) * specColor[1]),
+                        finalSpecColor[2] + ((1- shadowIntensity) * specColor[2])]
 
+    # Point light
     for pointLight in self.pointLights:
       diffuseColor = [0,0,0]
       specColor = [0,0,0]
+      shadowIntensity = 0
       lightDir = substract(pointLight.position, intersect.point)
       lightDir = divide(lightDir, norm(lightDir))
       intensity = max(0, dot(intersect.normal, lightDir)) * pointLight.intensity
       diffuseColor = [intensity * pointLight.color[2] / 255,
-                     intensity * pointLight.color[1] / 255,
-                     intensity * pointLight.color[0] / 255]
+                    intensity * pointLight.color[1] / 255,
+                    intensity * pointLight.color[0] / 255]
       # reflected light direction
       reflect = reflectVector(intersect.normal, lightDir)
       specIntensity = pointLight.intensity * max(0, dot(viewDir, reflect)) ** material.specularity
       specColor = [specIntensity * pointLight.color[2] / 255,
                   specIntensity * pointLight.color[1] / 255,
                   specIntensity * pointLight.color[0] / 255]
-      pLightColor = [diffuseColor[0] + specColor[0] + pLightColor[0],
-                    diffuseColor[1] + specColor[1] + pLightColor[1],
-                    diffuseColor[2] + specColor[2] + pLightColor[2]]
+      shadowIntersect = self.sceneIntersect(intersect.point, lightDir, intersect.sceneObject)
+      lightDistance = norm(substract(pointLight.position, intersect.point))
+      if shadowIntersect and shadowIntersect.distance < lightDistance:
+        shadowIntensity = 1
+      pLightColor = [pLightColor[0] + ((1 -shadowIntensity) * diffuseColor[0]),
+                    pLightColor[1] + ((1 -shadowIntensity) * diffuseColor[1]),
+                    pLightColor[2] + ((1 -shadowIntensity) * diffuseColor[2])]
+      finalSpecColor = [finalSpecColor[0] + ((1 - shadowIntensity) * specColor[0]),
+                        finalSpecColor[1] + ((1 - shadowIntensity) * specColor[1]),
+                        finalSpecColor[2] + ((1 - shadowIntensity) * specColor[2])]
 
-    finalColor = [pLightColor[0] + ambientColor[0] + dirLightColor[0],
-                  pLightColor[1] + ambientColor[1] + dirLightColor[1],
-                  pLightColor[2] + ambientColor[2] + dirLightColor[2]]
+    # Material reflection
+    if material.type == OPAQUE:
+      finalColor = [pLightColor[0] + ambientColor[0] + dirLightColor[0] + finalSpecColor[0],
+                    pLightColor[1] + ambientColor[1] + dirLightColor[1] + finalSpecColor[1],
+                    pLightColor[2] + ambientColor[2] + dirLightColor[2] + finalSpecColor[2]]
+      if material.texture and intersect.textCoords:
+        textureColor = material.texture.getColor(intersect.textCoords[0], intersect.textCoords[1])
+        if textureColor:
+          finalColor = [finalColor[0] * textureColor[2] / 255,
+                        finalColor[1] * textureColor[1] / 255,
+                        finalColor[2] * textureColor[0] / 255]
+
+    elif material.type == REFLECTIVE:
+      reflect = reflectVector(intersect.normal, negative(direction))
+      reflectColor = self.castRay(intersect.point, reflect, intersect.sceneObject, recursion + 1)
+      reflectColor = [reflectColor[2] / 255,
+                      reflectColor[1] / 255,
+                      reflectColor[0] / 255]
+      finalColor = [reflectColor[0] + finalSpecColor[0],
+                    reflectColor[1] + finalSpecColor[1],
+                    reflectColor[2] + finalSpecColor[2]]
+
+    elif material.type == TRANSPARENT:
+      outside = dot(direction, intersect.normal) < 0
+      bias = mult(intersect.normal, 0.001)
+
+      kr = fresnel(intersect.normal, direction, material.ior)
+      reflect = reflectVector(intersect.normal, negative(direction))
+      refractOrigin = sum(intersect.point, bias) if outside else substract(intersect.point, bias)
+      reflectColor = self.castRay(refractOrigin, reflect, None, recursion + 1)
+
+      if kr < 1:
+        refract = refractVector(intersect.normal, direction, material.ior)
+        refractOrigin = substract(intersect.point, bias) if outside else sum(intersect.point, bias)
+        refractColor = self.castRay(refractOrigin, refract, None, recursion + 1)
+
+      finalColor = [((reflectColor[2] * kr) + (refractColor[2] * (1 - kr))) / 255,
+                    ((reflectColor[1] * kr) + (refractColor[1] * (1 - kr))) / 255,
+                    ((reflectColor[0] * kr) + (refractColor[0] * (1 - kr))) / 255]
+      finalColor = [finalColor[0] + finalSpecColor[0], finalColor[1] + finalSpecColor[1], finalColor[2] + finalSpecColor[2]]
+
     finalColor = linearMult(finalColor, objectColor)
     r = min(1, finalColor[0])
     g = min(1, finalColor[1])
     b = min(1, finalColor[2])
     return newColor(r, g, b)
 
-  def sceneIntersect(self, origin, direction):
+  def sceneIntersect(self, origin, direction, originalObject = None):
     depth = float('inf')
     intersect = None
     for obj in self.scene:
-      hit = obj.ray_intersect(origin, direction)
-      if hit != None:
-        if hit.distance < depth:
-          depth = hit.distance
-          intersect = hit
+      if obj is not originalObject:
+        hit = obj.ray_intersect(origin, direction)
+        if hit != None:
+          if hit.distance < depth:
+            depth = hit.distance
+            intersect = hit
     return intersect
 
   def glFinish(self, filename):

@@ -1,6 +1,7 @@
 # Charges an OBJ file
 
 from src.glTypes import newColor
+from src.glMath import divide, norm, arccos, arctan2, pi
 from PIL import Image
 
 class Obj(object):
@@ -56,3 +57,28 @@ class Texture(object):
         return self.pixels[x][y]
     else:
       return newColor(0,0,0)
+
+class EnvironmentMap(object):
+  def __init__(self, filename, pos=0.5):
+    self.filename = filename
+    self.pos = pos
+    self.read()
+
+  def read(self):
+    self.image = Image.open(self.filename)
+    imagePixels = self.image.load()
+    self.pixels = []
+    for x in range(self.image.size[0]):
+      self.pixels.append([])
+      for y in range(self.image.size[1]):
+        r = imagePixels[x,y][0] / 255
+        g = imagePixels[x,y][1] / 255
+        b = imagePixels[x,y][2] / 255
+        self.pixels[x].append(newColor(r, g, b))
+
+  def getColor(self, direction):
+    direction = divide(direction, norm(direction))
+    x = int(((arctan2(direction[2], direction[0]) / (2 * pi)) + self.pos) * self.image.size[0])
+    y = int(arccos(direction[1]) / pi * self.image.size[1])
+    if x < self.image.size[0] and y < self.image.size[1]:
+      return self.pixels[x][y]

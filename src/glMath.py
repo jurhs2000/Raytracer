@@ -1,5 +1,7 @@
 from src.glTypes import V3
-from math import pi, tan
+from math import pi, tan, acos, atan2
+
+PI = pi
 
 def norm(x):
   xnorm = ((x.x**2) + (x.y**2) + (x.z**2))**(1/2)
@@ -59,6 +61,43 @@ def reflectVector(normal, dirVector):
   reflect = divide(reflect, norm(reflect))
   return reflect
 
+def refractVector(normal, direction, ior):
+  # Snell's law
+  cosi = max(-1, min(1, dot(direction, normal)))
+  etai = 1
+  etat = ior
+  if cosi < 0:
+    cosi = -cosi
+  else:
+    etai, etat = etat, etai
+    normal = negative(normal)
+  eta = etai / etat
+  k = 1 - eta**2 * (1 - cosi**2)
+  if k < 0: # total internal reflection
+    return None
+  R = sum(mult(direction, eta), mult(normal, eta * cosi - k**0.5))
+  return divide(R, norm(R))
+
+def fresnel(normal, direction, ior):
+  cosi = max(-1, min(1, dot(direction, normal)))
+  etai = 1
+  etat = ior
+
+  if cosi > 0:
+    etai, etat = etat, etai
+    
+  sint = etai / etat * (max(0, 1 - cosi**2) ** 0.5)
+
+  if sint >= 1: # Total internal reflection
+    return 1
+
+  cost = max(0, 1 - sint**2) ** 0.5
+  cosi = abs(cosi)
+  Rs = ((etat * cosi) - (etai * cost)) / ((etat * cosi) + (etai * cost))
+  Rp = ((etai * cosi) - (etat * cost)) / ((etai * cosi) + (etat * cost))
+
+  return (Rs * Rs + Rp * Rp) / 2
+
 # determinant of matrix without numpy
 # inspired by https://stackoverflow.com/questions/32114054/matrix-inversion-without-numpy
 def inv(x):
@@ -94,3 +133,9 @@ def transpose(x):
     for j in range(len(x)):
       xt[i][j] = x[j][i]
   return xt
+
+def arccos(x):
+  return acos(x)
+
+def arctan2(x, y):
+  return atan2(x, y)
