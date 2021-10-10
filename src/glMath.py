@@ -1,7 +1,34 @@
-from src.glTypes import V3
-from math import pi, tan, acos, atan2
+from src.glTypes import V3, V4
+from math import pi, tan, acos, atan2, cos, sin
 
 PI = pi
+
+
+def baseTransform(vertex, viewMatrix, viewportMatrix=None, projectionMatrix=None):
+  augVertex = V4(vertex[0], vertex[1], vertex[2], 1)
+  if viewportMatrix is None:
+    transVertex = matrixMult_4_1(viewMatrix, augVertex)
+  else:
+    transVertex = matrixMult_4_1(matrixMult(viewportMatrix, projectionMatrix), matrixMult_4_1(viewMatrix, augVertex))
+
+  transVertex = V3(transVertex[0] / transVertex[3],
+                    transVertex[1] / transVertex[3],
+                    transVertex[2] / transVertex[3])
+
+  return transVertex
+
+def transformV3(vertex, vMatrix):
+  return baseTransform(vertex, vMatrix)
+
+
+def matrixMult_4_1(matrixA, matrixB):
+  mut = [None] * len(matrixA)
+  for i in range(len(matrixA)):
+    element = 0
+    for j in range(len(matrixA)):
+      element += matrixA[i][j] * matrixB[j]
+    mut[i] = element
+  return mut
 
 def norm(x):
   xnorm = ((x.x**2) + (x.y**2) + (x.z**2))**(1/2)
@@ -97,6 +124,47 @@ def fresnel(normal, direction, ior):
   Rp = ((etai * cosi) - (etat * cost)) / ((etai * cosi) + (etat * cost))
 
   return (Rs * Rs + Rp * Rp) / 2
+
+
+def createObjectMatrix(translate, scale, rotate):
+  translateMatrix = [[1,0,0,translate.x],
+                    [0,1,0,translate.y],
+                    [0,0,1,translate.z],
+                    [0,0,0,1]]
+
+  scaleMatrix = [[scale.x,0,0,0],
+                [0,scale.y,0,0],
+                [0,0,scale.z,0],
+                [0,0,0,1]]
+
+  rotationMatrix = createRotationMatrix(rotate)
+
+  return matrixMult(matrixMult(translateMatrix, rotationMatrix), scaleMatrix)
+
+def deg2rad(deg):
+  return deg * (pi / 180)
+
+def createRotationMatrix(rotate):
+  pitch = deg2rad(rotate.x)
+  yaw = deg2rad(rotate.y)
+  roll = deg2rad(rotate.z)
+
+  rotationX = [[1,0,0,0],
+              [0,cos(pitch),-sin(pitch),0],
+              [0,sin(pitch),cos(pitch),0],
+              [0,0,0,1]]
+
+  rotationY = [[cos(yaw),0,sin(yaw),0],
+              [0,1,0,0],
+              [-sin(yaw),0,cos(yaw),0],
+              [0,0,0,1]]
+
+  rotationZ = [[cos(roll),-sin(roll),0,0],
+              [sin(roll),cos(roll),0,0],
+              [0,0,1,0],
+              [0,0,0,1]]
+
+  return matrixMult(matrixMult(rotationX, rotationY), rotationZ)
 
 # determinant of matrix without numpy
 # inspired by https://stackoverflow.com/questions/32114054/matrix-inversion-without-numpy

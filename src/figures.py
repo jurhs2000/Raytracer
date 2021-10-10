@@ -1,6 +1,6 @@
 from src.glTypes import V3
 from src.glModels import Material, Intersect
-from src.glMath import divide, dot, norm, substract, sum, mult, arccos, arctan2, PI
+from src.glMath import cross, divide, dot, norm, substract, sum, mult, arccos, arctan2, PI
 
 class Sphere(object):
   def __init__(self, center, radius, material = Material()):
@@ -107,3 +107,47 @@ class AABB(object):
       return None
 
     return Intersect(distance = intersect.distance, point = intersect.point, normal = intersect.normal, textCoords=uvs, sceneObject = self)
+
+class Triangle(object):
+  def __init__(self, v0, v1, v2, material = Material()):
+    self.v0 = v0
+    self.v1 = v1
+    self.v2 = v2
+    self.material = material
+
+  def ray_intersect(self, origin, direction):
+    e1 = substract(self.v1, self.v0)
+    e2 = substract(self.v2, self.v0)
+    N = cross(e1, e2)
+
+    NdotRayDirection = dot(N, direction)
+    if abs(NdotRayDirection) < 1e-6:
+      return None # ray is parallel to triangle plane
+
+    D = dot(N, self.v0)
+    t = (dot(N, origin) + D) / NdotRayDirection
+
+    if t < 0:
+      return None # Intersection is behind origin
+
+    P = sum(origin, mult(direction, t))
+
+    edge0 = substract(self.v1, self.v0)
+    vp0 = substract(P, self.v0)
+    C = cross(edge0, vp0)
+    if dot(N, C) < 0:
+      return None # P is on the right side
+
+    edge1 = substract(self.v2, self.v1)
+    vp1 = substract(P, self.v1)
+    C = cross(edge1, vp1)
+    if dot(N, C) < 0:
+      return None # P is on the right side
+
+    edge2 = substract(self.v0, self.v2)
+    vp2 = substract(P, self.v2)
+    C = cross(edge2, vp2)
+    if dot(N, C) < 0:
+      return None # P is on the right side
+
+    return Intersect(distance = t, point = P, normal = N, textCoords=None, sceneObject = self)

@@ -68,8 +68,13 @@ class Raytracer(object):
       self.pixels[int(x)][int(y)] = color or self.curr_color
 
   def glRender(self):
+    countX = 0
+    countY = 0
     for y in range(self.height):
+      print(f'{countY}/{self.height}')
+      countX = 0
       for x in range(self.width):
+        #print(f'{countX}/{self.width}')
         # Transform window coords to NDC coords (-1 to 1)
         Px = 2 * (x + 0.5) / self.width - 1
         Py = 2 * (y + 0.5) / self.height - 1
@@ -81,6 +86,8 @@ class Raytracer(object):
         direction = V3(Px, Py, -1) # Camera always sees to -Z
         direction = divide(direction, norm(direction))
         self.glPoint(x, y, self.castRay(self.camPosition, direction))
+        countX += 1
+      countY += 1
 
   def castRay(self, origin, direction, originalObject = None, recursion = 0):
     intersect = self.sceneIntersect(origin, direction, originalObject)
