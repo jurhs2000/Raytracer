@@ -33,21 +33,23 @@ class Obj(object):
 
 # tested with jpg, png
 class Texture(object):
-  def __init__(self, filename):
+  def __init__(self, filename, offsetX=0, offsetY=0):
     self.filename = filename
+    self.offsetX = offsetX
+    self.offsetY = offsetY
     self.read()
 
   def read(self):
     self.image = Image.open(self.filename)
     imagePixels = self.image.load()
-    self.pixels = []
+    self.pixels = [ [] for _ in range(self.image.size[0]) ]
     for x in range(self.image.size[0]):
-      self.pixels.append([])
+      self.pixels[(x + self.offsetX) % self.image.size[0]] = [ [] for _ in range(self.image.size[1]) ]
       for y in range(self.image.size[1]):
         r = imagePixels[x,y][0] / 255
         g = imagePixels[x,y][1] / 255
         b = imagePixels[x,y][2] / 255
-        self.pixels[x].append(newColor(r, g, b))
+        self.pixels[(x + self.offsetX) % self.image.size[0]][(y + self.offsetY) % self.image.size[1]] = newColor(r, g, b)
 
   def getColor(self, tx, ty):
     if 0 <= tx < 1 and 0 <= ty < 1:

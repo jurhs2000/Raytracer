@@ -194,6 +194,13 @@ class Raytracer(object):
                     reflectColor[1] + finalSpecColor[1],
                     reflectColor[2] + finalSpecColor[2]]
 
+      if material.texture and intersect.textCoords:
+        textureColor = material.texture.getColor(intersect.textCoords[0], intersect.textCoords[1])
+        if textureColor:
+          finalColor = [finalColor[0] * textureColor[2] / 255,
+                        finalColor[1] * textureColor[1] / 255,
+                        finalColor[2] * textureColor[0] / 255]
+
     elif material.type == TRANSPARENT:
       outside = dot(direction, intersect.normal) < 0
       bias = mult(intersect.normal, 0.001)

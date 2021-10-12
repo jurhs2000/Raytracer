@@ -116,10 +116,40 @@ class Triangle(object):
     self.material = material
 
   def ray_intersect(self, origin, direction):
-    e1 = substract(self.v1, self.v0)
-    e2 = substract(self.v2, self.v0)
-    N = cross(e1, e2)
+    v0v1 = substract(self.v1, self.v0)
+    v0v2 = substract(self.v2, self.v0)
+    pvec = cross(direction, v0v2)
+    det = dot(v0v1, pvec)
 
+    #ifdef CULLING
+    if det < 1e-6:
+      return None
+
+    #else
+    if abs(det) < 1e-6:
+      return None
+
+    #endif
+    invDet = 1 / det
+    tvec = substract(origin, self.v0)
+    u = dot(tvec, pvec) * invDet
+    if u < 0 or u > 1:
+      return None
+
+    qvec = cross(tvec, v0v1)
+    v = dot(direction, qvec) * invDet
+    if v < 0 or u + v > 1:
+      return None
+
+    t = dot(v0v2, qvec) * invDet
+
+    #else
+    v0v1 = substract(self.v1, self.v0)
+    v0v2 = substract(self.v2, self.v0)
+    N = cross(v0v1, v0v2)
+    denom = dot(N, N)
+
+    # Step 1: Finding P
     NdotRayDirection = dot(N, direction)
     if abs(NdotRayDirection) < 1e-6:
       return None # ray is parallel to triangle plane
@@ -141,13 +171,18 @@ class Triangle(object):
     edge1 = substract(self.v2, self.v1)
     vp1 = substract(P, self.v1)
     C = cross(edge1, vp1)
-    if dot(N, C) < 0:
+    u = dot(N, C)
+    if u < 0:
       return None # P is on the right side
 
     edge2 = substract(self.v0, self.v2)
     vp2 = substract(P, self.v2)
     C = cross(edge2, vp2)
-    if dot(N, C) < 0:
+    v = dot(N, C)
+    if v < 0:
       return None # P is on the right side
 
-    return Intersect(distance = t, point = P, normal = N, textCoords=None, sceneObject = self)
+    u /= denom
+    v /= denom
+
+    return Intersect(distance = D, point = P, normal = N, textCoords=(u, v), sceneObject = self)
